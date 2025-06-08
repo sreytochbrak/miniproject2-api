@@ -4,13 +4,13 @@ const app = express();
 
 // Forward requests to Student Microservice
 app.use('/student', createProxyMiddleware({
-  target: 'http://3.85.135.131',
+  target: 'http://3.85.135.131:3001',
   changeOrigin: true
 }));
 
 // Forward requests to Teacher Microservice
 app.use('/teacher', createProxyMiddleware({
-  target: 'http://13.219.97.195',
+  target: 'http://13.219.97.195:3002',
   changeOrigin: true
 }));
 
