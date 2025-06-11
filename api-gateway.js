@@ -1,20 +1,54 @@
 const express = require('express');
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const app = express();
+const app = express()
 
-// Forward requests to Student Microservice
-app.use('/student', createProxyMiddleware({
-  target: 'http://3.85.135.131:3001',
-  changeOrigin: true
-}));
+//USE PROXY SERVER TO REDIRECT THE INCOMMING REQUEST
+const httpProxy = require('http-proxy')
+const proxy = httpProxy.createProxyServer();
 
-// Forward requests to Teacher Microservice
-app.use('/teacher', createProxyMiddleware({
-  target: 'http://13.219.97.195:3002',
-  changeOrigin: true
-}));
+const jwt = require('jsonwebtoken')
+require('dotenv').config()
+const JWT_SECRETE = process.env.JWT_SECRETE;
 
-app.listen(5000, () => {
-  console.log("API Gateway is running on port 5000");
-});
+function authToken(req, res, next) {
+    console.log(req.headers.authorization)
+    const header = req?.headers.authorization;
+    const token = header && header.split(' ')[1];
 
+    if (token == null) return res.status(401).json("Please send token");
+
+    jwt.verify(token, JWT_SECRETE, (err, user) => {
+        if (err) return res.status(403).json("Invalid token", err);
+        req.user = user;
+        next()
+    })
+}
+
+function authRole(role) {
+    return (req, res, next) => {
+        if (req.user.role !== role) {
+            return res.status(403).json("Unauthorized");
+        }
+        next();
+    }
+}
+
+//REDIRECT TO THE STUDENT MICROSERVICE
+app.use('/student',authToken, authRole('student'), (req, res) => {
+    console.log("INSIDE API GATEWAY STUDENT ROUTE")
+    proxy.web(req, res, { target: 'http://44.202.36.240:5000' });
+})
+
+//REDIRECT TO THE TEACHER MICROSERVICE
+app.use('/teacher', authToken, authRole('teacher'),(req, res) => {
+    console.log("INSIDE API GATEWAY TEACHER ROUTE")
+    proxy.web(req, res, { target: 'http://52.205.251.62:5001' });
+})
+
+//REDIRECT TO THE LOGIN(Authentication) MICROSERVICE
+app.use('/auth', (req, res) => {
+    proxy.web(req, res, { target: 'http://54.152.151.85:5002' });
+})
+
+app.listen(4000, () => {
+    console.log("API Gateway Service is running on PORT NO : 4000")
+})
